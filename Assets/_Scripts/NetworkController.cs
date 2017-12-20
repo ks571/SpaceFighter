@@ -1,5 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -8,10 +10,10 @@ public class NetworkController : MonoBehaviour {
 
     int connectionId;
     int channelId;
-    int hostId;
+    int socketId;
 
-    public string connectIp;
     public int connectPort;
+    public int socketPort = 8888;
 
 	// Use this for initialization
 	void Start () {
@@ -23,10 +25,8 @@ public class NetworkController : MonoBehaviour {
 
         HostTopology topology = new HostTopology(config, 64);
 
-        hostId = NetworkTransport.AddHost(topology, 12345);
+        socketId = NetworkTransport.AddHost(topology, socketPort);
 
-        byte error;
-        connectionId = NetworkTransport.Connect(hostId, connectIp, connectPort, 0, out error);
 	}
 	
 	// Update is called once per frame
@@ -35,14 +35,15 @@ public class NetworkController : MonoBehaviour {
         int outConnectionId;
         int outChannelId;
         
-        int receivedSize;
+        int dataSize;
         byte error;
 
         // 000 0000 0000 0000 | each 0 represents a byte 
-        byte[] buffer = new byte[4096];
+        byte[] recBuffer = new byte[4096];
+        int bufferSize = 4096;
 
         //this line is broken, don't ask about it yet
-        NetworkEventType evt = NetworkTransport.Receive(out outHostId, out outConnectionId, out outChannelId, buffer, buffer.Length, out receivedSize, out error);
+        NetworkEventType evt = NetworkTransport.Receive(out outHostId, out outConnectionId, out outChannelId, recBuffer, bufferSize, out dataSize, out error);
 
         switch (evt)
         {
@@ -53,10 +54,10 @@ public class NetworkController : MonoBehaviour {
                 OnDiscconnect(outHostId, outConnectionId, (NetworkError)error);
                 break;
             case NetworkEventType.DataEvent:
-                OnData(outHostId, outConnectionId, outChannelId, buffer, receivedSize, (NetworkError)error);
+                OnData(outHostId, outConnectionId, outChannelId, recBuffer, dataSize, (NetworkError)error);
                 break;
             case NetworkEventType.BroadcastEvent:
-                OnBroadcast(outHostId, buffer, receivedSize, (NetworkError)error);
+                OnBroadcast(outHostId, recBuffer, dataSize, (NetworkError)error);
                 break;
             case NetworkEventType.Nothing:
                 break;
@@ -65,6 +66,26 @@ public class NetworkController : MonoBehaviour {
                 break;
         }
 	}
+
+    public void Connect() {
+        byte error;
+        connectionId = NetworkTransport.Connect(socketId, "localhost", connectPort, 0, out error);
+        Debug.Log("Connected to server. ConnectionId: " + connectionId);
+    }
+
+    public void SendSocketMessage() {
+        byte error;
+        byte[] buffer = new byte[4096];
+        int bufferSize = 4096;
+
+        Stream stream = new MemoryStream(buffer);
+        BinaryFormatter formatter = new BinaryFormatter();
+        formatter.Serialize(stream, "Hello World");
+
+
+        NetworkTransport.Send(socketId, connectionId, channelId, buffer, bufferSize, out error);
+
+    }
 
     void OnConnection(int hostId, int connectionId, NetworkError error) {
         Debug.Log("OnConnect(hostId = " + hostId + ", connectionId = "
@@ -82,8 +103,15 @@ public class NetworkController : MonoBehaviour {
     }
 
     void OnData(int hostId, int connectionId, int channelId, byte[] data, int size, NetworkError error) {
+
+        Stream stream = new MemoryStream(data);
+        BinaryFormatter formatter = new BinaryFormatter();
+        string message = formatter.Deserialize(stream) as string; 
+
         Debug.Log("OnDisconnect(hostId = " + hostId + ", connectionId = "
             + connectionId + ", channelId = " + channelId + ", data = "
             + data + ", size = " + size + ", error = " + error.ToString() + ")");
+
+        Debug.Log("Incoming message event: " + message);
     }
 }
