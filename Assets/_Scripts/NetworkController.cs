@@ -12,8 +12,9 @@ public class NetworkController : MonoBehaviour {
     int channelId;
     int socketId;
 
-    public int connectPort;
+    public string remoteIp = "127.0.0.1";
     public int socketPort = 8888;
+    public int maxConnections = 64;
 
 	// Use this for initialization
 	void Start () {
@@ -23,10 +24,13 @@ public class NetworkController : MonoBehaviour {
         //send data, but not in order;
         channelId = config.AddChannel(QosType.Reliable);
 
-        HostTopology topology = new HostTopology(config, 64);
+        HostTopology topology = new HostTopology(config, maxConnections);
 
         socketId = NetworkTransport.AddHost(topology, socketPort);
 
+        Debug.Log("Socket open. SocketId is: " + socketId);
+
+        Connect();
 	}
 	
 	// Update is called once per frame
@@ -39,10 +43,11 @@ public class NetworkController : MonoBehaviour {
         byte error;
 
         // 000 0000 0000 0000 | each 0 represents a byte 
-        byte[] recBuffer = new byte[4096];
-        int bufferSize = 4096;
+        // each message can hold up to 2048 characters
+        byte[] recBuffer = new byte[2048];
+        int bufferSize = 2048;
 
-        //this line is broken, don't ask about it yet
+        //Gets outHostId etc. anything with the "out" keyword puts it into that variable
         NetworkEventType evt = NetworkTransport.Receive(out outHostId, out outConnectionId, out outChannelId, recBuffer, bufferSize, out dataSize, out error);
 
         switch (evt)
@@ -69,15 +74,16 @@ public class NetworkController : MonoBehaviour {
 
     public void Connect() {
         byte error;
-        connectionId = NetworkTransport.Connect(socketId, "localhost", connectPort, 0, out error);
+        connectionId = NetworkTransport.Connect(socketId, remoteIp, socketPort, 0, out error);
         Debug.Log("Connected to server. ConnectionId: " + connectionId);
     }
 
     public void SendSocketMessage() {
         byte error;
-        byte[] buffer = new byte[4096];
-        int bufferSize = 4096;
+        byte[] buffer = new byte[2048];
+        int bufferSize = 2048;
 
+        // turns string into bits
         Stream stream = new MemoryStream(buffer);
         BinaryFormatter formatter = new BinaryFormatter();
         formatter.Serialize(stream, "Hello World");
@@ -114,4 +120,5 @@ public class NetworkController : MonoBehaviour {
 
         Debug.Log("Incoming message event: " + message);
     }
+
 }
