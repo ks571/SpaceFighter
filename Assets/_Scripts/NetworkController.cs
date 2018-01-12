@@ -13,7 +13,7 @@ public class NetworkController : MonoBehaviour {
     int socketId;
 
     public string remoteIp = "127.0.0.1";
-    public int socketPort = 8888;
+    public int socketPort = 31733;
     public int maxConnections = 64;
 
 	// Use this for initialization
