@@ -22,7 +22,7 @@ public class NetworkController : MonoBehaviour {
         ConnectionConfig config = new ConnectionConfig();
 
         //send data, but not in order;
-        channelId = config.AddChannel(QosType.Reliable);
+        channelId = config.AddChannel(QosType.Unreliable);
 
         HostTopology topology = new HostTopology(config, maxConnections);
 
